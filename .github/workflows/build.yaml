@@ -26,7 +26,7 @@ jobs:
           TAGS=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
             "https://api.github.com/repos/${{ github.repository }}/releases?per_page=5" \
             | grep -o "build-[^\"]*${COMMIT}" || true)
-          if [ -n "$TAGS" ] && [ "${{ github.event_name }}" = "schedule" ]; then
+          if { [ "$EXISTING" = "200" ] || [ -n "$TAGS" ]; } && [ "${{ github.event_name }}" = "schedule" ]; then
             echo "Commit $COMMIT already has a release, skipping."
             echo "skip=true" >> $GITHUB_OUTPUT
           else
