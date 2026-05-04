@@ -116,13 +116,16 @@ jobs:
           name: pycdc-linux-aarch64
           path: staging/linux-aarch64/
 
+      - name: Verify release files
+        run: ls -la release/
+
       - name: Create release
-        uses: ncipollo/release-action@v1
+        uses: softprops/action-gh-release@v2
         with:
           name: Decompyle++ ${{ env.RELEASE_DATE }}
-          tag: build-${{ env.RELEASE_DATE }}-${{ env.RELEASE_COMMIT }}
+          tag_name: build-${{ env.RELEASE_DATE }}-${{ env.RELEASE_COMMIT }}
           body: Compiled on ${{ env.RELEASE_DATE }} at ${{ env.RELEASE_TIME }} GMT, pycdc commit ${{ env.RELEASE_COMMIT }}
-          artifacts: "release/*"
-          token: ${{ secrets.GITHUB_TOKEN }}
-          allowUpdates: true
-          draft: true
+          files: release/*
+          make_latest: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
