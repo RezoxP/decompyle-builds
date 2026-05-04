@@ -1,48 +1,21 @@
 name: Compile pycdc for Windows & Linux
-on:
-  workflow_dispatch:
-  schedule:
-    - cron: '0 */6 * * *'
+on: workflow_dispatch
 
 jobs:
   build-job:
     runs-on: ubuntu-22.04
       
     steps:
-      - name: Clone pycdc
-        run: git clone --depth=1 https://github.com/zrax/pycdc
-
-      - name: Check for new upstream commits
-        id: check_new
-        run: |
-          cd pycdc
-          COMMIT=$(git log -1 --format=%h)
-          echo "commit=$COMMIT" >> $GITHUB_OUTPUT
-          # Check if a release with this commit already exists
-          EXISTING=$(curl -s -o /dev/null -w "%{http_code}" \
-            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-            "https://api.github.com/repos/${{ github.repository }}/git/ref/tags/build-$(date -u +%d-%b-%Y)-${COMMIT}" 2>/dev/null || true)
-          # Also check recent releases for this commit hash in any tag
-          TAGS=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-            "https://api.github.com/repos/${{ github.repository }}/releases?per_page=5" \
-            | grep -o "build-[^\"]*${COMMIT}" || true)
-          if { [ "$EXISTING" = "200" ] || [ -n "$TAGS" ]; } && [ "${{ github.event_name }}" = "schedule" ]; then
-            echo "Commit $COMMIT already has a release, skipping."
-            echo "skip=true" >> $GITHUB_OUTPUT
-          else
-            echo "New commit $COMMIT detected, proceeding with build."
-            echo "skip=false" >> $GITHUB_OUTPUT
-          fi
-
       - name: Install mingw-w64
-        if: steps.check_new.outputs.skip != 'true'
         run: |
           sudo apt update
           sudo apt install -y mingw-w64
 
+      - name: Clone pycdc
+        run: git clone --depth=1 https://github.com/zrax/pycdc
+
       # ── Windows 32-bit ──
       - name: Compile for Windows 32-bit
-        if: steps.check_new.outputs.skip != 'true'
         run: >
           cd pycdc
 
@@ -61,13 +34,11 @@ jobs:
           make
 
       - name: Set release date & time
-        if: steps.check_new.outputs.skip != 'true'
         run: |
           echo "RELEASE_DATE=$(date -u +%d-%b-%Y)" >> ${GITHUB_ENV}
           echo "RELEASE_TIME=$(date -u +%H:%M)" >> ${GITHUB_ENV}
 
       - name: Stage Windows 32-bit artifacts
-        if: steps.check_new.outputs.skip != 'true'
         run: |
           mkdir -p staging/win32 release
           cp pycdc/pycdc.exe staging/win32/
@@ -76,7 +47,6 @@ jobs:
           cp pycdc/pycdas.exe release/pycdas-win32.exe
 
       - name: Upload Windows 32-bit artifacts
-        if: steps.check_new.outputs.skip != 'true'
         uses: actions/upload-artifact@v4
         with:
           name: pycdc-win32
@@ -84,7 +54,6 @@ jobs:
 
       # ── Windows 64-bit ──
       - name: Compile for Windows 64-bit
-        if: steps.check_new.outputs.skip != 'true'
         run: |
           cd pycdc
           git clean -d -f -x
@@ -100,7 +69,6 @@ jobs:
           make
 
       - name: Stage Windows 64-bit artifacts
-        if: steps.check_new.outputs.skip != 'true'
         run: |
           mkdir -p staging/win64
           cp pycdc/pycdc.exe staging/win64/
@@ -109,7 +77,6 @@ jobs:
           cp pycdc/pycdas.exe release/pycdas-win64.exe
 
       - name: Upload Windows 64-bit artifacts
-        if: steps.check_new.outputs.skip != 'true'
         uses: actions/upload-artifact@v4
         with:
           name: pycdc-win64
@@ -117,7 +84,6 @@ jobs:
 
       # ── Linux x64 ──
       - name: Setup latest Alpine Linux x86_64
-        if: steps.check_new.outputs.skip != 'true'
         uses: jirutka/setup-alpine@v1
         with:
           packages: >
@@ -126,7 +92,6 @@ jobs:
             python3
         
       - name: Compile for Linux x64
-        if: steps.check_new.outputs.skip != 'true'
         run: |
           cd pycdc
           git clean -d -f -x
@@ -137,7 +102,6 @@ jobs:
         shell: alpine.sh {0}
 
       - name: Stage Linux x64 artifacts
-        if: steps.check_new.outputs.skip != 'true'
         run: |
           mkdir -p staging/linux-x64
           cp pycdc/pycdc staging/linux-x64/
@@ -146,7 +110,6 @@ jobs:
           cp pycdc/pycdas release/pycdas-linux-x64
 
       - name: Upload Linux x64 artifacts
-        if: steps.check_new.outputs.skip != 'true'
         uses: actions/upload-artifact@v4
         with:
           name: pycdc-linux-x64
@@ -154,7 +117,6 @@ jobs:
 
       # ── Linux ARM64 ──
       - name: Setup latest Alpine Linux aarch64
-        if: steps.check_new.outputs.skip != 'true'
         uses: jirutka/setup-alpine@v1        
         with:
           arch: aarch64
@@ -164,7 +126,6 @@ jobs:
             python3
 
       - name: Compile for Linux ARM64
-        if: steps.check_new.outputs.skip != 'true'
         run: |
           cd pycdc
           git clean -d -f -x
@@ -175,7 +136,6 @@ jobs:
         shell: alpine.sh {0}        
 
       - name: Stage Linux ARM64 artifacts
-        if: steps.check_new.outputs.skip != 'true'
         run: |
           mkdir -p staging/linux-arm64
           cp pycdc/pycdc staging/linux-arm64/
@@ -184,7 +144,6 @@ jobs:
           cp pycdc/pycdas release/pycdas-linux-arm64
 
       - name: Upload Linux ARM64 artifacts
-        if: steps.check_new.outputs.skip != 'true'
         uses: actions/upload-artifact@v4
         with:
           name: pycdc-linux-arm64
@@ -192,11 +151,9 @@ jobs:
 
       # ── Release ──
       - name: Verify release files
-        if: steps.check_new.outputs.skip != 'true'
         run: ls -la release/
 
       - name: Create release
-        if: steps.check_new.outputs.skip != 'true'
         uses: softprops/action-gh-release@v2
         with:
           name: Decompyle++ ${{ env.RELEASE_DATE }}
