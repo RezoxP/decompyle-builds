@@ -14,10 +14,11 @@ jobs:
       - name: Clone pycdc
         run: git clone --depth=1 https://github.com/zrax/pycdc
 
-      - name: Compile for Windows
+      # ── Windows 32-bit ──
+      - name: Compile for Windows 32-bit
         run: >
           cd pycdc
-          
+
           echo "RELEASE_COMMIT=$(git log -1 --format=%h)" >> ${GITHUB_ENV}
 
           cmake -DCMAKE_SYSTEM_NAME=Windows
@@ -29,7 +30,7 @@ jobs:
           -DCMAKE_FIND_ROOT_PATH_MODE_PROGRAM=NEVER
           -DCMAKE_CXX_STANDARD_LIBRARIES="-static-libgcc -static-libstdc++"
           .
-          
+
           make
 
       - name: Set release date & time
@@ -37,20 +38,51 @@ jobs:
           echo "RELEASE_DATE=$(date -u +%d-%b-%Y)" >> ${GITHUB_ENV}
           echo "RELEASE_TIME=$(date -u +%H:%M)" >> ${GITHUB_ENV}
 
-      - name: Stage Windows artifacts
+      - name: Stage Windows 32-bit artifacts
         run: |
-          mkdir -p staging/windows release
-          cp pycdc/pycdc.exe staging/windows/
-          cp pycdc/pycdas.exe staging/windows/
-          cp pycdc/pycdc.exe release/pycdc-windows-x86.exe
-          cp pycdc/pycdas.exe release/pycdas-windows-x86.exe
+          mkdir -p staging/win32 release
+          cp pycdc/pycdc.exe staging/win32/
+          cp pycdc/pycdas.exe staging/win32/
+          cp pycdc/pycdc.exe release/pycdc-win32.exe
+          cp pycdc/pycdas.exe release/pycdas-win32.exe
 
-      - name: Upload Windows artifacts
+      - name: Upload Windows 32-bit artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: pycdc-windows-x86
-          path: staging/windows/
+          name: pycdc-win32
+          path: staging/win32/
 
+      # ── Windows 64-bit ──
+      - name: Compile for Windows 64-bit
+        run: |
+          cd pycdc
+          git clean -d -f -x
+          cmake -DCMAKE_SYSTEM_NAME=Windows \
+            -DCMAKE_C_COMPILER=x86_64-w64-mingw32-gcc \
+            -DCMAKE_CXX_COMPILER=x86_64-w64-mingw32-g++ \
+            -DCMAKE_FIND_ROOT_PATH=/usr/x86_64-w64-mingw32 \
+            -DCMAKE_FIND_ROOT_PATH_MODE_INCLUDE=ONLY \
+            -DCMAKE_FIND_ROOT_PATH_MODE_LIBRARY=ONLY \
+            -DCMAKE_FIND_ROOT_PATH_MODE_PROGRAM=NEVER \
+            -DCMAKE_CXX_STANDARD_LIBRARIES="-static-libgcc -static-libstdc++" \
+            .
+          make
+
+      - name: Stage Windows 64-bit artifacts
+        run: |
+          mkdir -p staging/win64
+          cp pycdc/pycdc.exe staging/win64/
+          cp pycdc/pycdas.exe staging/win64/
+          cp pycdc/pycdc.exe release/pycdc-win64.exe
+          cp pycdc/pycdas.exe release/pycdas-win64.exe
+
+      - name: Upload Windows 64-bit artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: pycdc-win64
+          path: staging/win64/
+
+      # ── Linux x64 ──
       - name: Setup latest Alpine Linux x86_64
         uses: jirutka/setup-alpine@v1
         with:
@@ -59,7 +91,7 @@ jobs:
             cmake
             python3
         
-      - name: Compile for Linux x86_64       
+      - name: Compile for Linux x64
         run: |
           cd pycdc
           git clean -d -f -x
@@ -69,20 +101,21 @@ jobs:
           make
         shell: alpine.sh {0}
 
-      - name: Stage Linux x86_64 artifacts
+      - name: Stage Linux x64 artifacts
         run: |
-          mkdir -p staging/linux-x86_64
-          cp pycdc/pycdc staging/linux-x86_64/
-          cp pycdc/pycdas staging/linux-x86_64/
-          cp pycdc/pycdc release/pycdc-linux-x86_64
-          cp pycdc/pycdas release/pycdas-linux-x86_64
+          mkdir -p staging/linux-x64
+          cp pycdc/pycdc staging/linux-x64/
+          cp pycdc/pycdas staging/linux-x64/
+          cp pycdc/pycdc release/pycdc-linux-x64
+          cp pycdc/pycdas release/pycdas-linux-x64
 
-      - name: Upload Linux x86_64 artifacts
+      - name: Upload Linux x64 artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: pycdc-linux-x86_64
-          path: staging/linux-x86_64/
+          name: pycdc-linux-x64
+          path: staging/linux-x64/
 
+      # ── Linux ARM64 ──
       - name: Setup latest Alpine Linux aarch64
         uses: jirutka/setup-alpine@v1        
         with:
@@ -92,7 +125,7 @@ jobs:
             cmake
             python3
 
-      - name: Compile for Linux AArch64       
+      - name: Compile for Linux ARM64
         run: |
           cd pycdc
           git clean -d -f -x
@@ -102,20 +135,21 @@ jobs:
           make
         shell: alpine.sh {0}        
 
-      - name: Stage Linux aarch64 artifacts
+      - name: Stage Linux ARM64 artifacts
         run: |
-          mkdir -p staging/linux-aarch64
-          cp pycdc/pycdc staging/linux-aarch64/
-          cp pycdc/pycdas staging/linux-aarch64/
-          cp pycdc/pycdc release/pycdc-linux-aarch64
-          cp pycdc/pycdas release/pycdas-linux-aarch64
+          mkdir -p staging/linux-arm64
+          cp pycdc/pycdc staging/linux-arm64/
+          cp pycdc/pycdas staging/linux-arm64/
+          cp pycdc/pycdc release/pycdc-linux-arm64
+          cp pycdc/pycdas release/pycdas-linux-arm64
 
-      - name: Upload Linux AArch64 artifacts
+      - name: Upload Linux ARM64 artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: pycdc-linux-aarch64
-          path: staging/linux-aarch64/
+          name: pycdc-linux-arm64
+          path: staging/linux-arm64/
 
+      # ── Release ──
       - name: Verify release files
         run: ls -la release/
 
