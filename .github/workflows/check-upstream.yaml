@@ -1,0 +1,48 @@
+name: Check for pycdc updates
+on:
+  schedule:
+    - cron: '0 0 * * *'
+
+jobs:
+  check:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Check latest upstream commit
+        run: |
+          COMMIT=$(git ls-remote https://github.com/zrax/pycdc HEAD | cut -c1-7)
+          echo "Latest pycdc commit: $COMMIT"
+
+          # Check if this commit already has a release (by tag or recent releases)
+          TAG_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            "https://api.github.com/repos/${{ github.repository }}/git/ref/tags/build-$(date -u +%d-%b-%Y)-${COMMIT}" 2>/dev/null || true)
+
+          RELEASE_MATCH=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            "https://api.github.com/repos/${{ github.repository }}/releases?per_page=10" \
+            | grep -o "build-[^\"]*${COMMIT}" || true)
+
+          if [ "$TAG_STATUS" = "200" ] || [ -n "$RELEASE_MATCH" ]; then
+            echo "Commit $COMMIT already built, nothing to do."
+          else
+            echo "New commit $COMMIT found, triggering build..."
+            curl -X POST \
+              -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+              -H "Accept: application/vnd.github.v3+json" \
+              "https://api.github.com/repos/${{ github.repository }}/actions/workflows/build.yaml/dispatches" \
+              -d '{"ref":"main"}'
+          fi
+
+      - name: Clean up old check runs
+        run: |
+          # Get this workflow's ID
+          WORKFLOW_ID=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            "https://api.github.com/repos/${{ github.repository }}/actions/workflows" \
+            | jq '.workflows[] | select(.name == "Check for pycdc updates") | .id')
+
+          # Delete all runs except the current one
+          curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            "https://api.github.com/repos/${{ github.repository }}/actions/workflows/${WORKFLOW_ID}/runs?per_page=30" \
+            | jq -r ".workflow_runs[] | select(.id != ${{ github.run_id }}) | .id" \
+            | xargs -I{} curl -s -X DELETE \
+              -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+              "https://api.github.com/repos/${{ github.repository }}/actions/runs/{}" 2>/dev/null || true
